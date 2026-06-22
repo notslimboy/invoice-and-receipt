@@ -173,6 +173,31 @@ const downloadBlob = (blob: Blob, fileName: string) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
+const imageToDataUrl = async (src: string) => {
+  const response = await fetch(src);
+  const blob = await response.blob();
+
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+const waitForImages = async (node: HTMLElement) => {
+  const images = Array.from(node.querySelectorAll("img"));
+  await Promise.all(
+    images.map((image) => {
+      if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        image.onload = () => resolve();
+        image.onerror = () => resolve();
+      });
+    }),
+  );
+};
+
 const isMobileOrTabletDevice = () => {
   if (typeof window === "undefined") return false;
 
@@ -194,6 +219,7 @@ function App() {
   const [data, setData] = useState<DocumentData>(initialData);
   const [documentCounter, setDocumentCounter] = useState(readCounter);
   const [isExporting, setIsExporting] = useState(false);
+  const [logoSrc, setLogoSrc] = useState(logoShanti);
   const previewRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
@@ -202,6 +228,20 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(COUNTER_KEY, String(documentCounter));
   }, [documentCounter]);
+
+  useEffect(() => {
+    let isMounted = true;
+    imageToDataUrl(logoShanti)
+      .then((dataUrl) => {
+        if (isMounted) setLogoSrc(dataUrl);
+      })
+      .catch(() => {
+        if (isMounted) setLogoSrc(logoShanti);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const itemSubtotal = useMemo(
     () => data.items.reduce((sum, item) => sum + itemLineTotal(item), 0),
@@ -250,6 +290,14 @@ function App() {
     setIsExporting(true);
     try {
       await document.fonts.ready;
+      if (logoSrc === logoShanti) {
+        const embeddedLogoSrc = await imageToDataUrl(logoShanti);
+        setLogoSrc(embeddedLogoSrc);
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
+      }
+      await waitForImages(previewRef.current);
       const blob = await toBlob(previewRef.current, exportOptions);
       if (!blob) return;
 
@@ -300,7 +348,7 @@ function App() {
   return (
     <main className="min-h-[100dvh] overflow-x-clip bg-[#f6fbf5] px-4 py-5 text-[#123322] sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-5">
-        <AppHeader />
+        <AppHeader logoSrc={logoSrc} />
 
         <Tabs value={mode} onValueChange={(value) => setMode(value as DocumentMode)}>
           <TabsList aria-label="Pilih jenis dokumen">
@@ -329,6 +377,7 @@ function App() {
                     onAddItem={addItem}
                     onRemoveItem={removeItem}
                     onClearItems={clearItems}
+                    logoSrc={logoSrc}
                     documentNumber={data.documentNumber}
                     onDownloadImage={downloadImage}
                   />
@@ -349,6 +398,7 @@ function App() {
                     onAddItem={addItem}
                     onRemoveItem={removeItem}
                     onClearItems={clearItems}
+                    logoSrc={logoSrc}
                     documentNumber={data.documentNumber}
                     onDownloadImage={downloadImage}
                   />
@@ -373,16 +423,17 @@ type WorkspaceProps = {
   onAddItem: () => void;
   onRemoveItem: (id: string) => void;
   onClearItems: () => void;
+  logoSrc: string;
   documentNumber: string;
   onDownloadImage: () => void;
 };
 
-function AppHeader() {
+function AppHeader({ logoSrc }: { logoSrc: string }) {
   return (
     <header className="flex items-center justify-between gap-4 rounded-[18px] border border-[#c9e9c3] bg-white px-4 py-3 sm:px-5">
       <div className="flex min-w-0 items-center gap-3">
         <img
-          src={logoShanti}
+          src={logoSrc}
           alt="Shanti Catering logo"
           className="h-14 w-28 shrink-0 object-contain object-left sm:h-16 sm:w-36"
         />
@@ -408,6 +459,7 @@ function Workspace({
   onAddItem,
   onRemoveItem,
   onClearItems,
+  logoSrc,
   documentNumber,
   onDownloadImage,
 }: WorkspaceProps) {
@@ -583,9 +635,9 @@ function Workspace({
 
         <PreviewCanvas mode={mode}>
           {mode === "nota" ? (
-            <NotaPreview ref={previewRef} data={data} total={total} documentNumber={documentNumber} />
+            <NotaPreview ref={previewRef} data={data} total={total} documentNumber={documentNumber} logoSrc={logoSrc} />
           ) : (
-            <InvoicePreview ref={previewRef} data={data} total={total} documentNumber={documentNumber} />
+            <InvoicePreview ref={previewRef} data={data} total={total} documentNumber={documentNumber} logoSrc={logoSrc} />
           )}
         </PreviewCanvas>
       </section>
@@ -1031,11 +1083,11 @@ function ContactPill({
   );
 }
 
-function LogoBlock({ compact = false }: { compact?: boolean }) {
+function LogoBlock({ compact = false, logoSrc }: { compact?: boolean; logoSrc: string }) {
   return (
     <div className="flex flex-col items-start">
       <img
-        src={logoShanti}
+        src={logoSrc}
         alt="Shanti Catering logo"
         className={cn("object-contain object-left", compact ? "h-20 w-56" : "h-36 w-80")}
       />
@@ -1053,8 +1105,8 @@ function LogoBlock({ compact = false }: { compact?: boolean }) {
 
 const NotaPreview = forwardRef<
   HTMLDivElement,
-  { data: DocumentData; total: number; documentNumber: string }
->(({ data, total, documentNumber }, ref) => {
+  { data: DocumentData; total: number; documentNumber: string; logoSrc: string }
+>(({ data, total, documentNumber, logoSrc }, ref) => {
   const deliveryFee = toNumber(data.deliveryFee);
   const contentRows = [
     ...data.items.filter(itemHasContent).map((item) => ({ type: "item" as const, item })),
@@ -1067,7 +1119,7 @@ const NotaPreview = forwardRef<
   return (
     <div ref={ref} className="document-paper nota-paper">
       <div className="grid grid-cols-[1fr_280px] gap-8">
-        <LogoBlock />
+        <LogoBlock logoSrc={logoSrc} />
         <div className="text-right">
           <p className="text-[15px] font-semibold leading-6 text-[#123322]">{businessProfile.serviceInfo}</p>
           <div className="mt-8 space-y-4 text-left">
@@ -1140,14 +1192,14 @@ NotaPreview.displayName = "NotaPreview";
 
 const InvoicePreview = forwardRef<
   HTMLDivElement,
-  { data: DocumentData; total: number; documentNumber: string }
->(({ data, total, documentNumber }, ref) => {
+  { data: DocumentData; total: number; documentNumber: string; logoSrc: string }
+>(({ data, total, documentNumber, logoSrc }, ref) => {
   const invoiceItems = data.items.filter(itemHasContent);
 
   return (
     <div ref={ref} className="document-paper invoice-paper">
       <div className="flex items-start justify-between gap-10">
-        <LogoBlock compact />
+        <LogoBlock compact logoSrc={logoSrc} />
         <div className="text-right">
           <p className="text-[54px] font-black tracking-[-0.04em] text-[#005d2e]">INVOICE</p>
           <p className="mt-2 text-[15px] font-semibold text-[#315c3d]">No. {documentNumber}</p>
