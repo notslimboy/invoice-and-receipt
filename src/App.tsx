@@ -590,7 +590,7 @@ function Workspace({
               </div>
               {mode === "nota" && (
                 <div className="rounded-[14px] border border-[#c9e9c3] bg-[#f6fbf5] p-3">
-                  <Field label="Ongkir" htmlFor="delivery-fee">
+                  <Field label="Ongkir (Opsional)" htmlFor="delivery-fee">
                     <PriceInput
                       id="delivery-fee"
                       value={data.deliveryFee}
