@@ -163,6 +163,7 @@ const exportOptions = {
   pixelRatio: 2,
   backgroundColor: "#ffffff",
 };
+const exportFramePadding = 32;
 
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
@@ -632,16 +633,25 @@ function Workspace({
         </div>
 
         <PreviewCanvas mode={mode}>
-          {mode === "nota" ? (
-            <NotaPreview ref={previewRef} data={data} total={total} documentNumber={documentNumber} logoSrc={logoSrc} />
-          ) : (
-            <InvoicePreview ref={previewRef} data={data} total={total} documentNumber={documentNumber} logoSrc={logoSrc} />
-          )}
+          <ExportFrame ref={previewRef}>
+            {mode === "nota" ? (
+              <NotaPreview data={data} total={total} documentNumber={documentNumber} logoSrc={logoSrc} />
+            ) : (
+              <InvoicePreview data={data} total={total} documentNumber={documentNumber} logoSrc={logoSrc} />
+            )}
+          </ExportFrame>
         </PreviewCanvas>
       </section>
     </div>
   );
 }
+
+const ExportFrame = forwardRef<HTMLDivElement, { children: ReactNode }>(({ children }, ref) => (
+  <div ref={ref} className="export-frame" style={{ padding: exportFramePadding }}>
+    {children}
+  </div>
+));
+ExportFrame.displayName = "ExportFrame";
 
 function PreviewCanvas({ mode, children }: { mode: DocumentMode; children: ReactNode }) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -651,7 +661,11 @@ function PreviewCanvas({ mode, children }: { mode: DocumentMode; children: React
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
 
-  const paperSize = mode === "nota" ? { width: 760, height: 1080 } : { width: 1120, height: 760 };
+  const documentSize = mode === "nota" ? { width: 760, height: 1080 } : { width: 1120, height: 760 };
+  const paperSize = {
+    width: documentSize.width + exportFramePadding * 2,
+    height: documentSize.height + exportFramePadding * 2,
+  };
 
   const clampZoom = (value: number) => Math.min(1.35, Math.max(0.25, value));
 

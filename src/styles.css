@@ -57,6 +57,11 @@ textarea {
   transform-origin: top left;
 }
 
+.export-frame {
+  width: fit-content;
+  background: #ffffff;
+}
+
 .document-paper {
   margin: 0 auto;
   display: flex;
