@@ -27,6 +27,7 @@ import {
   type ReactNode,
   type WheelEvent as ReactWheelEvent,
 } from "react";
+import { flushSync } from "react-dom";
 import logoShanti from "./assets/logo-shanti-catering.png";
 import {
   AlertDialog,
@@ -175,7 +176,8 @@ const downloadBlob = (blob: Blob, fileName: string) => {
 };
 
 const imageToDataUrl = async (src: string) => {
-  const response = await fetch(src);
+  const response = await fetch(src, { cache: "force-cache" });
+  if (!response.ok) throw new Error(`Failed to load image: ${src}`);
   const blob = await response.blob();
 
   return new Promise<string>((resolve, reject) => {
@@ -186,15 +188,50 @@ const imageToDataUrl = async (src: string) => {
   });
 };
 
+const decodeImageSource = async (src: string) =>
+  new Promise<void>((resolve) => {
+    const image = new Image();
+    image.decoding = "sync";
+    image.onload = () => {
+      if (!image.decode) {
+        resolve();
+        return;
+      }
+
+      image.decode().then(() => resolve()).catch(() => resolve());
+    };
+    image.onerror = () => resolve();
+    image.src = src;
+  });
+
+let embeddedLogoSrcPromise: Promise<string> | null = null;
+
+const getEmbeddedLogoSrc = () => {
+  embeddedLogoSrcPromise ??= imageToDataUrl(logoShanti).then(async (dataUrl) => {
+    await decodeImageSource(dataUrl);
+    return dataUrl;
+  });
+  return embeddedLogoSrcPromise;
+};
+
+const waitForNextPaint = () =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+
 const waitForImages = async (node: HTMLElement) => {
   const images = Array.from(node.querySelectorAll("img"));
   await Promise.all(
-    images.map((image) => {
-      if (image.complete && image.naturalWidth > 0) return Promise.resolve();
-      return new Promise<void>((resolve) => {
-        image.onload = () => resolve();
-        image.onerror = () => resolve();
-      });
+    images.map(async (image) => {
+      if (!(image.complete && image.naturalWidth > 0)) {
+        await new Promise<void>((resolve) => {
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+        });
+      }
+
+      if (!image.decode) return;
+      await image.decode().catch(() => undefined);
     }),
   );
 };
@@ -221,7 +258,9 @@ function App() {
   const [documentCounter, setDocumentCounter] = useState(readCounter);
   const [isExporting, setIsExporting] = useState(false);
   const [logoSrc, setLogoSrc] = useState(logoShanti);
+  const [isLogoReady, setIsLogoReady] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const logoSrcRef = useRef(logoShanti);
   const reduceMotion = useReducedMotion();
 
   const generatedDocumentNumber = useMemo(() => formatDocumentNumber(documentCounter), [documentCounter]);
@@ -232,12 +271,19 @@ function App() {
 
   useEffect(() => {
     let isMounted = true;
-    imageToDataUrl(logoShanti)
+    getEmbeddedLogoSrc()
       .then((dataUrl) => {
-        if (isMounted) setLogoSrc(dataUrl);
+        if (!isMounted) return;
+        logoSrcRef.current = dataUrl;
+        setLogoSrc(dataUrl);
+        setIsLogoReady(true);
       })
-      .catch(() => {
-        if (isMounted) setLogoSrc(logoShanti);
+      .catch(async () => {
+        await decodeImageSource(logoShanti);
+        if (!isMounted) return;
+        logoSrcRef.current = logoShanti;
+        setLogoSrc(logoShanti);
+        setIsLogoReady(true);
       });
     return () => {
       isMounted = false;
@@ -291,13 +337,20 @@ function App() {
     setIsExporting(true);
     try {
       await document.fonts.ready;
-      if (logoSrc === logoShanti) {
-        const embeddedLogoSrc = await imageToDataUrl(logoShanti);
-        setLogoSrc(embeddedLogoSrc);
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      const exportLogoSrc = await getEmbeddedLogoSrc().catch(async () => {
+        await decodeImageSource(logoShanti);
+        return logoShanti;
+      });
+
+      if (logoSrcRef.current !== exportLogoSrc) {
+        flushSync(() => {
+          setLogoSrc(exportLogoSrc);
+          setIsLogoReady(true);
         });
+        logoSrcRef.current = exportLogoSrc;
       }
+
+      await waitForNextPaint();
       await waitForImages(previewRef.current);
       const blob = await toBlob(previewRef.current, exportOptions);
       if (!blob) return;
@@ -371,6 +424,7 @@ function App() {
                     total={total}
                     previewRef={previewRef}
                     isExporting={isExporting}
+                    isLogoReady={isLogoReady}
                     onDataChange={updateData}
                     onItemChange={updateItem}
                     onAddItem={addItem}
@@ -392,6 +446,7 @@ function App() {
                     total={total}
                     previewRef={previewRef}
                     isExporting={isExporting}
+                    isLogoReady={isLogoReady}
                     onDataChange={updateData}
                     onItemChange={updateItem}
                     onAddItem={addItem}
@@ -417,6 +472,7 @@ type WorkspaceProps = {
   total: number;
   previewRef: React.RefObject<HTMLDivElement | null>;
   isExporting: boolean;
+  isLogoReady: boolean;
   onDataChange: <K extends keyof DocumentData>(key: K, value: DocumentData[K]) => void;
   onItemChange: (id: string, patch: Partial<LineItem>) => void;
   onAddItem: () => void;
@@ -434,6 +490,8 @@ function AppHeader({ logoSrc }: { logoSrc: string }) {
         <img
           src={logoSrc}
           alt="Shanti Catering logo"
+          decoding="sync"
+          loading="eager"
           className="h-14 w-28 shrink-0 object-contain object-left sm:h-16 sm:w-36"
         />
         <div className="min-w-0">
@@ -453,6 +511,7 @@ function Workspace({
   total,
   previewRef,
   isExporting,
+  isLogoReady,
   onDataChange,
   onItemChange,
   onAddItem,
@@ -623,11 +682,11 @@ function Workspace({
               type="button"
               size="sm"
               onClick={onDownloadImage}
-              disabled={isExporting}
+              disabled={isExporting || !isLogoReady}
               className="min-w-[132px] whitespace-nowrap px-4"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
-              {isExporting ? "Menyimpan..." : "Simpan gambar"}
+              {isExporting ? "Menyimpan..." : isLogoReady ? "Simpan gambar" : "Menyiapkan..."}
             </Button>
           </div>
         </div>
@@ -1101,6 +1160,8 @@ function LogoBlock({ compact = false, logoSrc }: { compact?: boolean; logoSrc: s
       <img
         src={logoSrc}
         alt="Shanti Catering logo"
+        decoding="sync"
+        loading="eager"
         className={cn("object-contain object-left", compact ? "h-20 w-56" : "h-36 w-80")}
       />
       <div className={cn("flex flex-col items-start gap-1.5", compact ? "mt-3" : "mt-5")}>
