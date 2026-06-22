@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+:root {
+  color: #123322;
+  background: #f6fbf5;
+  font-family: Arial, Helvetica, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #f6fbf5;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100dvh;
+  margin: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.preview-scroll {
+  max-width: 100%;
+  width: 100%;
+  height: min(72dvh, 720px);
+  min-height: 260px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, rgba(246, 251, 245, 0.95), rgba(246, 251, 245, 0)),
+    #e7f4e2;
+  padding: 14px;
+  touch-action: none;
+}
+
+.preview-stage {
+  position: relative;
+  margin: 0 auto;
+}
+
+.preview-scale {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: top left;
+}
+
+.document-paper {
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  color: #123322;
+  box-shadow: none;
+}
+
+.nota-paper {
+  width: 760px;
+  min-height: 1080px;
+  padding: 54px 48px;
+}
+
+.invoice-paper {
+  width: 1120px;
+  min-height: 760px;
+  padding: 46px 52px;
+}
+
+.nota-table,
+.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.nota-table th {
+  background: #123322;
+  color: #ffffff;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.nota-table th,
+.nota-table td {
+  border: 2px solid #123322;
+  height: 52px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.nota-table td {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.nota-table .total-row td {
+  height: 58px;
+  font-size: 18px;
+  font-weight: 900;
+  text-align: right;
+}
+
+.nota-table .total-row td:last-child {
+  text-align: center;
+}
+
+.invoice-table th {
+  border-bottom: 2px solid #005d2e;
+  color: #005d2e;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.invoice-table th,
+.invoice-table td {
+  padding: 14px 12px;
+}
+
+.invoice-table td {
+  border-bottom: 1px solid #c9e9c3;
+  color: #123322;
+  font-size: 15px;
+}
+
+.invoice-table th:not(:first-child),
+.invoice-table td:not(:first-child) {
+  text-align: right;
+}
+
+@media (max-width: 767px) {
+  .preview-scroll {
+    height: min(68dvh, 620px);
+    min-height: 240px;
+    padding: 10px;
+  }
+
+  .nota-paper {
+    width: 700px;
+  }
+
+  .invoice-paper {
+    width: 1040px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
