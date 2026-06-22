@@ -306,8 +306,6 @@ function App() {
       const file = new File([blob], fileName, { type: "image/png" });
       const shareData: ShareData = {
         files: [file],
-        title: `${mode === "nota" ? "Nota" : "Invoice"} ${businessProfile.name}`,
-        text: `${mode === "nota" ? "Nota" : "Invoice"} ${exportDocumentNumber}`,
       };
       const shareNavigator = typeof navigator === "undefined" ? null : navigator;
       const shouldUseNativeShare = isMobileOrTabletDevice();
