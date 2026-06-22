@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toBlob } from "html-to-image";
 import {
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -133,6 +134,10 @@ const monthLabelFormatter = new Intl.DateTimeFormat("id-ID", {
   month: "long",
   year: "numeric",
 });
+
+const monthNames = Array.from({ length: 12 }, (_, monthIndex) =>
+  new Intl.DateTimeFormat("id-ID", { month: "long" }).format(new Date(2026, monthIndex, 1)),
+);
 
 const normalizeNumericInput = (value: string) =>
   value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
@@ -963,6 +968,7 @@ function DatePicker({
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const selected = parseDateValue(value);
     const base = selected || new Date();
@@ -995,6 +1001,15 @@ function DatePicker({
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   };
 
+  const moveYear = (offset: number) => {
+    setVisibleMonth((current) => new Date(current.getFullYear() + offset, current.getMonth(), 1));
+  };
+
+  const selectMonth = (monthIndex: number) => {
+    setVisibleMonth((current) => new Date(current.getFullYear(), monthIndex, 1));
+    setIsMonthPickerOpen(false);
+  };
+
   const selectDate = (date: Date) => {
     onChange(toDateValue(date));
     setOpen(false);
@@ -1010,8 +1025,13 @@ function DatePicker({
     setOpen(false);
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) setIsMonthPickerOpen(false);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           id="date-picker"
@@ -1034,55 +1054,93 @@ function DatePicker({
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-full"
-            onClick={() => moveMonth(-1)}
-            aria-label="Bulan sebelumnya"
+            onClick={() => (isMonthPickerOpen ? moveYear(-1) : moveMonth(-1))}
+            aria-label={isMonthPickerOpen ? "Tahun sebelumnya" : "Bulan sebelumnya"}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <p className="text-sm font-black capitalize text-[#08351d]">{monthLabel}</p>
+          <button
+            type="button"
+            className={cn(
+              "flex min-w-0 cursor-pointer items-center gap-1 rounded-[10px] px-3 py-1.5 text-sm font-black capitalize text-[#08351d] transition-colors duration-200 hover:bg-[#f6fbf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#238d48]",
+              isMonthPickerOpen && "bg-[#e7f4e2] text-[#005d2e]",
+            )}
+            onClick={() => setIsMonthPickerOpen((current) => !current)}
+            aria-expanded={isMonthPickerOpen}
+            aria-label="Pilih bulan"
+          >
+            <span>{isMonthPickerOpen ? visibleMonth.getFullYear() : monthLabel}</span>
+            <ChevronDown
+              className={cn("h-4 w-4 transition-transform duration-200", isMonthPickerOpen && "rotate-180")}
+              aria-hidden="true"
+            />
+          </button>
           <Button
             type="button"
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-full"
-            onClick={() => moveMonth(1)}
-            aria-label="Bulan berikutnya"
+            onClick={() => (isMonthPickerOpen ? moveYear(1) : moveMonth(1))}
+            aria-label={isMonthPickerOpen ? "Tahun berikutnya" : "Bulan berikutnya"}
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
 
-        <div className="mt-2.5 grid grid-cols-7 gap-0.5 text-center">
-          {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((day) => (
-            <div key={day} className="py-0.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#4e7258]">
-              {day}
-            </div>
-          ))}
-          {calendarDays.map((date) => {
-            const dateValue = toDateValue(date);
-            const isSelected = value === dateValue;
-            const isToday = currentToday === dateValue;
-            const isCurrentMonth = date.getMonth() === visibleMonth.getMonth();
+        {isMonthPickerOpen ? (
+          <div className="mt-3 grid grid-cols-3 gap-1.5">
+            {monthNames.map((monthName, monthIndex) => {
+              const isVisibleMonth = visibleMonth.getMonth() === monthIndex;
 
-            return (
-              <button
-                key={dateValue}
-                type="button"
-                className={cn(
-                  "grid h-8 cursor-pointer place-items-center rounded-[9px] text-[13px] font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#238d48] focus-visible:ring-offset-2",
-                  isSelected && "bg-[#005d2e] text-white hover:bg-[#005d2e]",
-                  !isSelected && isToday && "border border-[#238d48] text-[#005d2e] hover:bg-[#e7f4e2]",
-                  !isSelected && !isToday && "text-[#123322] hover:bg-[#e7f4e2]",
-                  !isCurrentMonth && !isSelected && "text-[#8fab95]",
-                )}
-                onClick={() => selectDate(date)}
-                aria-pressed={isSelected}
-              >
-                {date.getDate()}
-              </button>
-            );
-          })}
-        </div>
+              return (
+                <button
+                  key={monthName}
+                  type="button"
+                  className={cn(
+                    "min-h-10 cursor-pointer rounded-[10px] px-2 py-2 text-xs font-black capitalize text-[#123322] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#238d48] focus-visible:ring-offset-2",
+                    isVisibleMonth ? "bg-[#005d2e] text-white" : "bg-[#f6fbf5] hover:bg-[#e7f4e2]",
+                  )}
+                  onClick={() => selectMonth(monthIndex)}
+                  aria-pressed={isVisibleMonth}
+                >
+                  {monthName}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-2.5 grid grid-cols-7 gap-0.5 text-center">
+            {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((day) => (
+              <div key={day} className="py-0.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#4e7258]">
+                {day}
+              </div>
+            ))}
+            {calendarDays.map((date) => {
+              const dateValue = toDateValue(date);
+              const isSelected = value === dateValue;
+              const isToday = currentToday === dateValue;
+              const isCurrentMonth = date.getMonth() === visibleMonth.getMonth();
+
+              return (
+                <button
+                  key={dateValue}
+                  type="button"
+                  className={cn(
+                    "grid h-8 cursor-pointer place-items-center rounded-[9px] text-[13px] font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#238d48] focus-visible:ring-offset-2",
+                    isSelected && "bg-[#005d2e] text-white hover:bg-[#005d2e]",
+                    !isSelected && isToday && "border border-[#238d48] text-[#005d2e] hover:bg-[#e7f4e2]",
+                    !isSelected && !isToday && "text-[#123322] hover:bg-[#e7f4e2]",
+                    !isCurrentMonth && !isSelected && "text-[#8fab95]",
+                  )}
+                  onClick={() => selectDate(date)}
+                  aria-pressed={isSelected}
+                >
+                  {date.getDate()}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-2.5 flex items-center justify-between border-t border-[#e0f0dc] pt-2.5">
           <button
