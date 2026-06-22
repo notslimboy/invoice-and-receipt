@@ -56,6 +56,7 @@ type LineItem = {
 };
 
 type DocumentData = {
+  documentNumber: string;
   date: string;
   customerName: string;
   deliveryFee: string;
@@ -70,6 +71,7 @@ const createItem = (name = "", quantity = "", price = ""): LineItem => ({
 });
 
 const initialData: DocumentData = {
+  documentNumber: "",
   date: "",
   customerName: "",
   deliveryFee: "",
@@ -153,6 +155,9 @@ const itemHasContent = (item?: LineItem) =>
 
 const itemLineTotal = (item: LineItem) => toNumber(item.quantity) * toNumber(item.price);
 
+const sanitizeFilePart = (value: string) =>
+  value.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-");
+
 const exportOptions = {
   cacheBust: true,
   pixelRatio: 2,
@@ -192,7 +197,7 @@ function App() {
   const previewRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
-  const documentNumber = useMemo(() => formatDocumentNumber(documentCounter), [documentCounter]);
+  const generatedDocumentNumber = useMemo(() => formatDocumentNumber(documentCounter), [documentCounter]);
 
   useEffect(() => {
     window.localStorage.setItem(COUNTER_KEY, String(documentCounter));
@@ -248,12 +253,13 @@ function App() {
       const blob = await toBlob(previewRef.current, exportOptions);
       if (!blob) return;
 
-      const fileName = `${mode}-${documentNumber}.png`;
+      const exportDocumentNumber = data.documentNumber.trim() || generatedDocumentNumber;
+      const fileName = `${mode}-${sanitizeFilePart(exportDocumentNumber)}.png`;
       const file = new File([blob], fileName, { type: "image/png" });
       const shareData: ShareData = {
         files: [file],
         title: `${mode === "nota" ? "Nota" : "Invoice"} ${businessProfile.name}`,
-        text: `${mode === "nota" ? "Nota" : "Invoice"} ${documentNumber}`,
+        text: `${mode === "nota" ? "Nota" : "Invoice"} ${exportDocumentNumber}`,
       };
       const shareNavigator = typeof navigator === "undefined" ? null : navigator;
       const shouldUseNativeShare = isMobileOrTabletDevice();
@@ -323,7 +329,7 @@ function App() {
                     onAddItem={addItem}
                     onRemoveItem={removeItem}
                     onClearItems={clearItems}
-                    documentNumber={documentNumber}
+                    documentNumber={data.documentNumber}
                     onDownloadImage={downloadImage}
                   />
                 </motion.div>
@@ -343,7 +349,7 @@ function App() {
                     onAddItem={addItem}
                     onRemoveItem={removeItem}
                     onClearItems={clearItems}
-                    documentNumber={documentNumber}
+                    documentNumber={data.documentNumber}
                     onDownloadImage={downloadImage}
                   />
                 </motion.div>
@@ -423,7 +429,13 @@ function Workspace({
         <div className="mt-5 space-y-6">
           <FormSection title={mode === "nota" ? "Detail nota" : "Detail invoice"}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <ReadOnlyField label={mode === "nota" ? "NOTA No" : "Invoice No"} value={documentNumber} />
+              <Field label={mode === "nota" ? "NOTA No" : "Invoice No"} htmlFor="document-number">
+                <Input
+                  id="document-number"
+                  value={data.documentNumber}
+                  onChange={(event) => onDataChange("documentNumber", event.target.value)}
+                />
+              </Field>
               <Field label="Tanggal" htmlFor="date-picker">
                 <DatePicker value={data.date} onChange={(date) => onDataChange("date", date)} />
               </Field>
@@ -533,9 +545,11 @@ function Workspace({
                       onChange={(value) => onDataChange("deliveryFee", value)}
                     />
                   </Field>
-                  <p className="mt-3 text-right text-sm font-semibold text-[#005d2e]">
-                    {data.deliveryFee ? `Masuk ke nota sebagai Ongkir: ${formatCurrency(toNumber(data.deliveryFee))}` : "Opsional"}
-                  </p>
+                  {data.deliveryFee && (
+                    <p className="mt-3 text-right text-sm font-semibold text-[#005d2e]">
+                      Masuk ke nota sebagai Ongkir: {formatCurrency(toNumber(data.deliveryFee))}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -730,17 +744,6 @@ function Field({
     <div className="grid min-w-0 gap-2">
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
-    </div>
-  );
-}
-
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid gap-2 sm:col-span-2">
-      <Label>{label}</Label>
-      <div className="flex h-11 items-center rounded-[10px] border border-[#c9e9c3] bg-[#f6fbf5] px-3 text-sm font-semibold text-[#005d2e]">
-        {value}
-      </div>
     </div>
   );
 }
