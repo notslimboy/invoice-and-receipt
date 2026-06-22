@@ -83,7 +83,7 @@ const businessProfile = {
   slug: "ShantiCatering",
   address: "Jl. Bhaskara III No. 38",
   phone: "0821 4155 1973",
-  serviceInfo: "Menerima Pesanan Nasi Kotak, Kue, Tumpeng, Prasmanan, Dan Coffee Break.",
+  serviceInfo: "Menerima Pesanan Nasi Kotak, Kue, Tumpeng, Prasmanan, Coffee Break.",
   paymentInfo: "Pembayaran dapat dilakukan tunai atau transfer.",
   closingNote: "Terima kasih atas kepercayaannya.",
 };
